@@ -5,9 +5,10 @@ import os
 # Intento de importación segura para diagnóstico
 try:
     import cv2
-    OPENCV_STATUS = f"✅ OpenCV {cv2.__version__}"
+    import ultralytics
+    OPENCV_STATUS = f"✅ OpenCV {cv2.__version__} | Ultralytics {ultralytics.__version__}"
 except Exception as e:
-    OPENCV_STATUS = f"❌ Error OpenCV: {str(e)}"
+    OPENCV_STATUS = f"❌ Error de dependencias: {str(e)}"
 
 from ultralytics import YOLO
 import PIL.Image
