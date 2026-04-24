@@ -1,4 +1,14 @@
 import streamlit as st
+import sys
+import os
+
+# Intento de importación segura para diagnóstico
+try:
+    import cv2
+    OPENCV_STATUS = f"✅ OpenCV {cv2.__version__}"
+except Exception as e:
+    OPENCV_STATUS = f"❌ Error OpenCV: {str(e)}"
+
 from ultralytics import YOLO
 import PIL.Image
 import numpy as np
@@ -18,6 +28,7 @@ def main():
     st.write("Esta aplicación permite detectar equipos de protección personal en imágenes.")
     
     st.sidebar.header("⚙️ Configuración")
+    st.sidebar.write(f"Sistema: {OPENCV_STATUS}")
     conf_threshold = st.sidebar.slider("Umbral de Confianza", 0.0, 1.0, 0.4)
     st.sidebar.markdown("---")
     opcion = st.sidebar.selectbox("Selecciona una opción", ["Inicio", "Detección", "Acerca de"])
