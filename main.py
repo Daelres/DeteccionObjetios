@@ -1,9 +1,6 @@
 import streamlit as st
-import sys
 import os
 import PIL.Image
-import numpy as np
-import cv2
 
 # Intento de importación segura para diagnóstico
 try:
@@ -57,7 +54,7 @@ def main():
             border: 2px solid #f5c6cb;
         }
         </style>
-    """, unsafe_with_html_allowed=True)
+    """, unsafe_allow_html=True)
 
     # Sidebar simplificada
     st.sidebar.header("⚙️ Configuración")
@@ -112,10 +109,10 @@ def main():
                 st.image(res_rgb, caption='Resultado de la Detección', use_container_width=True)
 
                 if tiene_casco and tiene_chaleco:
-                    st.markdown('<div class="status-box authorized">✅ INGRESO PERMITIDO<br><small>Se detectó casco y chaleco correctamente.</small></div>', unsafe_with_html_allowed=True)
+                    st.markdown('<div class="status-box authorized">✅ INGRESO PERMITIDO<br><small>Se detectó casco y chaleco correctamente.</small></div>', unsafe_allow_html=True)
                     st.balloons()
                 else:
-                    st.markdown('<div class="status-box denied">❌ INGRESO DENEGADO<br><small>Faltan elementos de seguridad obligatorios.</small></div>', unsafe_with_html_allowed=True)
+                    st.markdown('<div class="status-box denied">❌ INGRESO DENEGADO<br><small>Faltan elementos de seguridad obligatorios.</small></div>', unsafe_allow_html=True)
                     
                     faltantes = []
                     if not tiene_casco: faltantes.append("⛑️ Casco (Helmet)")
