@@ -29,17 +29,31 @@ def load_model():
     model_path = 'modelo_ppe_yolov8.pt'
     if os.path.exists(model_path):
         try:
-            # Diagnóstico de tamaño
-            size_mb = os.path.getsize(model_path) / (1024 * 1024)
+            # Diagnóstico de archivo
+            file_size = os.path.getsize(model_path)
+            size_mb = file_size / (1024 * 1024)
+            
+            with open(model_path, 'rb') as f:
+                header = f.read(10)
+                
             if size_mb < 0.1:
                 st.error(f"⚠️ El archivo del modelo parece estar corrupto o es un puntero (Tamaño: {size_mb:.4f} MB).")
+                st.info("Si usas Git LFS, asegúrate de que el archivo real se haya subido y no solo el puntero de texto.")
                 return None
+            
+            # Verificar cabecera ZIP (común en modelos de PyTorch recientes)
+            if not header.startswith(b'PK'):
+                st.warning(f"⚠️ El archivo no tiene la cabecera esperada de PyTorch/ZIP. Cabecera encontrada: {header.hex()}")
+            
             return YOLO(model_path)
         except EOFError:
-            st.error("❌ Error de lectura (EOFError): El archivo del modelo está incompleto o dañado. Por favor, vuelve a subirlo a GitHub.")
+            st.error("❌ Error de lectura (EOFError): El archivo del modelo está incompleto o dañado.")
+            st.info("Sugerencia: Vuelve a subir el archivo 'modelo_ppe_yolov8.pt' a GitHub manualmente asegurándote de que se complete la carga.")
             return None
         except Exception as e:
             st.error(f"❌ Error inesperado al cargar el modelo: {e}")
+            import traceback
+            st.expander("Ver detalles del error").code(traceback.format_exc())
             return None
     return None
 
