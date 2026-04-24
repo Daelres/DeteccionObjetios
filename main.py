@@ -7,10 +7,18 @@ try:
     import cv2
     import ultralytics
     OPENCV_STATUS = f"✅ OpenCV {cv2.__version__} | Ultralytics {ultralytics.__version__}"
+except ImportError as e:
+    OPENCV_STATUS = f"❌ Error de Importación: {str(e)}"
 except Exception as e:
-    OPENCV_STATUS = f"❌ Error de dependencias: {str(e)}"
+    OPENCV_STATUS = f"❌ Error inesperado: {str(e)}"
 
-from ultralytics import YOLO
+# Intentar cargar YOLO de forma que capturemos el error exacto de librería compartida
+try:
+    from ultralytics import YOLO
+except ImportError as e:
+    st.error(f"Error crítico al cargar Ultralytics/OpenCV: {e}")
+    st.info("Sugerencia: Asegúrate de que 'opencv-python-headless' esté en requirements.txt y no haya conflictos en packages.txt")
+    st.stop()
 import PIL.Image
 import numpy as np
 import cv2
