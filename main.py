@@ -1,28 +1,32 @@
 import streamlit as st
 import sys
 import os
+import PIL.Image
+import numpy as np
+import cv2
 
 # Intento de importación segura para diagnóstico
 try:
     import cv2
     import ultralytics
-    OPENCV_STATUS = f"✅ OpenCV {cv2.__version__} | Ultralytics {ultralytics.__version__}"
+    OPENCV_STATUS = "✅ Sistema: Listo"
 except ImportError as e:
-    OPENCV_STATUS = f"❌ Error de Importación: {str(e)}"
-except Exception as e:
-    OPENCV_STATUS = f"❌ Error inesperado: {str(e)}"
+    OPENCV_STATUS = f"❌ Error: {str(e)}"
+    st.error(f"Error de dependencias: {e}")
+    st.stop()
 
-# Intentar cargar YOLO de forma que capturemos el error exacto de librería compartida
 try:
     from ultralytics import YOLO
 except ImportError as e:
-    st.error(f"Error crítico al cargar Ultralytics/OpenCV: {e}")
-    st.info("Sugerencia: Asegúrate de que 'opencv-python-headless' esté en requirements.txt y no haya conflictos en packages.txt")
+    st.error(f"Error crítico al cargar YOLO: {e}")
     st.stop()
-import PIL.Image
-import numpy as np
-import cv2
-import os
+
+# Configuración de la página
+st.set_page_config(
+    page_title="Control de Acceso PPE",
+    page_icon="⛑️",
+    layout="centered"
+)
 
 def load_model():
     model_path = 'modelo_ppe_yolov8.pt'
@@ -31,77 +35,103 @@ def load_model():
     return None
 
 def main():
-    st.set_page_config(page_title="Detección de Objetos PPE", page_icon="🔍")
-    
-    st.title("🛡️ Aplicación de Detección de PPE")
-    st.write("Esta aplicación permite detectar equipos de protección personal en imágenes.")
-    
-    st.sidebar.header("⚙️ Configuración")
-    st.sidebar.write(f"Sistema: {OPENCV_STATUS}")
-    conf_threshold = st.sidebar.slider("Umbral de Confianza", 0.0, 1.0, 0.4)
-    st.sidebar.markdown("---")
-    opcion = st.sidebar.selectbox("Selecciona una opción", ["Inicio", "Detección", "Acerca de"])
-    
-    model = load_model()
-    
-    if model is None:
-        st.error("⚠️ No se encontró el archivo del modelo 'modelo_ppe_yolov8.pt'. Asegúrate de entrenar el modelo y exportarlo primero.")
-        st.stop()
+    # Estilos CSS para mejorar la interfaz
+    st.markdown("""
+        <style>
+        .status-box {
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .authorized {
+            background-color: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        .denied {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        </style>
+    """, unsafe_with_html_allowed=True)
 
-    if opcion == "Inicio":
-        st.subheader("Bienvenido")
-        st.info("Navega a la sección de 'Detección' en el menú lateral para subir una imagen.")
-        st.markdown("""
-        ### Objetos que detecta el modelo:
-        - 🦺 Chaleco (Vest)
-        - 🥾 Calzado de Seguridad (Safety Shoe)
-        - 😷 Tapabocas (Mask)
-        - ⛑️ Casco (Helmet)
-        - 🥽 Gafas (Goggles)
-        - 🧤 Guantes (Gloves)
-        """)
+    # Sidebar simplificada
+    st.sidebar.header("⚙️ Configuración")
+    st.sidebar.write(OPENCV_STATUS)
+    conf_threshold = st.sidebar.slider("Umbral de Confianza", 0.0, 1.0, 0.45)
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("""
+    **Regla de Negocio:**
+    Para ingresar a la obra es obligatorio el uso de:
+    - ⛑️ **Casco** (Helmet)
+    - 🦺 **Chaleco** (Vest)
+    """)
+
+    # Título principal
+    st.title("🛡️ Control de Acceso Inteligente")
+    st.write("Verificación automática de Equipo de Protección Personal (EPP)")
+
+    model = load_model()
+    if model is None:
+        st.error("⚠️ Archivo del modelo no encontrado.")
+        return
+
+    # Área de carga de imagen
+    uploaded_file = st.file_uploader("Seleccione la imagen del trabajador...", type=["jpg", "jpeg", "png"])
+
+    if uploaded_file is not None:
+        image = PIL.Image.open(uploaded_file)
         
-    elif opcion == "Detección":
-        st.subheader("🕵️ Detección en Imágenes")
-        
-        uploaded_file = st.file_uploader("Elige una imagen...", type=["jpg", "jpeg", "png"])
-        if uploaded_file is not None:
-            image = PIL.Image.open(uploaded_file)
-            st.image(image, caption='Imagen subida', use_column_width=True)
-            
-            if st.button("Ejecutar Detección"):
-                with st.spinner("Analizando imagen..."):
-                    # Convertir imagen para YOLO
-                    results = model.predict(image, conf=conf_threshold)
+        # Botón de acción centrado
+        if st.button("🚀 Validar Requisitos de Ingreso", use_container_width=True):
+            with st.spinner("Analizando imagen..."):
+                results = model.predict(image, conf=conf_threshold)
+                
+                # Obtener imagen anotada
+                res_plotted = results[0].plot()
+                res_rgb = cv2.cvtColor(res_plotted, cv2.COLOR_BGR2RGB)
+                
+                # Procesar resultados
+                classes = results[0].names
+                counts = {}
+                for box in results[0].boxes:
+                    cls_id = int(box.cls[0])
+                    cls_name = classes[cls_id]
+                    counts[cls_name] = counts.get(cls_name, 0) + 1
+                
+                # Lógica de ingreso
+                # Nota: Los nombres de clases en el modelo son 'helmet' y 'vest' en minúsculas
+                tiene_casco = counts.get('helmet', 0) > 0
+                tiene_chaleco = counts.get('vest', 0) > 0
+
+                # Mostrar resultado visual
+                st.image(res_rgb, caption='Resultado de la Detección', use_container_width=True)
+
+                if tiene_casco and tiene_chaleco:
+                    st.markdown('<div class="status-box authorized">✅ INGRESO PERMITIDO<br><small>Se detectó casco y chaleco correctamente.</small></div>', unsafe_with_html_allowed=True)
+                    st.balloons()
+                else:
+                    st.markdown('<div class="status-box denied">❌ INGRESO DENEGADO<br><small>Faltan elementos de seguridad obligatorios.</small></div>', unsafe_with_html_allowed=True)
                     
-                    # El primer resultado contiene la imagen anotada
-                    res_plotted = results[0].plot()
+                    faltantes = []
+                    if not tiene_casco: faltantes.append("⛑️ Casco (Helmet)")
+                    if not tiene_chaleco: faltantes.append("🦺 Chaleco (Vest)")
                     
-                    # Convertir BGR (OpenCV) a RGB (Streamlit/PIL)
-                    res_rgb = cv2.cvtColor(res_plotted, cv2.COLOR_BGR2RGB)
-                    
-                    st.subheader("Resultado:")
-                    st.image(res_rgb, caption='Detecciones realizadas', use_column_width=True)
-                    
-                    # Mostrar conteo
-                    st.write("### Objetos detectados:")
-                    classes = results[0].names
-                    counts = {}
-                    for box in results[0].boxes:
-                        cls_id = int(box.cls[0])
-                        cls_name = classes[cls_id]
-                        counts[cls_name] = counts.get(cls_name, 0) + 1
-                    
+                    st.error(f"**Atención:** Falta {', '.join(faltantes)}")
+
+                # Mostrar otros elementos detectados
+                with st.expander("Ver inventario completo de EPP detectado"):
                     if counts:
-                        for name, count in counts.items():
-                            st.write(f"- **{name}**: {count}")
+                        for item, qty in counts.items():
+                            st.write(f"- **{item.capitalize()}**: {qty}")
                     else:
-                        st.write("No se detectaron objetos PPE.")
-            
-    elif opcion == "Acerca de":
-        st.subheader("Información del Proyecto")
-        st.write("Este proyecto utiliza **YOLOv8** para la detección de Equipos de Protección Personal.")
-        st.write("Desarrollado para la UNAB Digital.")
+                        st.write("No se detectó ningún elemento de seguridad.")
+    else:
+        st.info("👆 Por favor, suba una fotografía para realizar la validación de seguridad.")
 
 if __name__ == "__main__":
     main()
