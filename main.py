@@ -28,7 +28,19 @@ st.set_page_config(
 def load_model():
     model_path = 'modelo_ppe_yolov8.pt'
     if os.path.exists(model_path):
-        return YOLO(model_path)
+        try:
+            # Diagnóstico de tamaño
+            size_mb = os.path.getsize(model_path) / (1024 * 1024)
+            if size_mb < 0.1:
+                st.error(f"⚠️ El archivo del modelo parece estar corrupto o es un puntero (Tamaño: {size_mb:.4f} MB).")
+                return None
+            return YOLO(model_path)
+        except EOFError:
+            st.error("❌ Error de lectura (EOFError): El archivo del modelo está incompleto o dañado. Por favor, vuelve a subirlo a GitHub.")
+            return None
+        except Exception as e:
+            st.error(f"❌ Error inesperado al cargar el modelo: {e}")
+            return None
     return None
 
 def main():
